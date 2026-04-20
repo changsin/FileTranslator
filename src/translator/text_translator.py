@@ -1,7 +1,7 @@
 import json
 from abc import ABC
 
-from json_utils import from_file, to_file
+from ..json_utils import from_file, to_file
 
 
 class TextTranslator(ABC):
@@ -10,7 +10,7 @@ class TextTranslator(ABC):
     The input is a translator string and the output the translation.
     """
     def __init__(self, from_language, to_language):
-        self.translator = None
+        self.client = None
         self.from_language = from_language
         self.to_language = to_language
         # if it is a know string, return it immediately

@@ -1,8 +1,10 @@
 import re
 
-from googletrans import Translator
-
+# from googletrans import Translator
+#
 from .text_translator import TextTranslator
+from google.cloud import translate_v2 as translate
+from google.api_core import exceptions # Import for catching API exceptions
 
 """
 TranslatorGoogle is a wrapper around google translate API.
@@ -22,39 +24,64 @@ Known issues:
     If this happens, just rerun it till you get the correct response.
 """
 
-MAX_RETRIES = 5
+MAX_RETRIES = 3
 
 
 class TranslatorGoogle(TextTranslator):
     def __init__(self, from_language, to_language):
         super(TranslatorGoogle, self).__init__(from_language, to_language)
-        self.translator = Translator()
+        self.client = translate.Client()
 
     def translate(self, text):
         text_translated = self.dictionary.get(text)
+
+        # Condition to check if translation is needed
+        # (not found in dictionary, or found but translated to itself, and not matching the regex)
         if (not text_translated or text == text_translated) and not re.match("^[a-zA-Z0-9]+(?:_[a-zA-Z0-9]+)?$", text):
-            text_translated = self.translator.translate(text, dest=self.to_language, src=self.from_language).text
-            detected_language = self.translator.detect(text)
+            translated_text_result = None
+            detected_language_result = None
 
-            # if not translated, try again
             retries = 0
-            if detected_language.lang == self.from_language and text_translated == text:
+            while retries < MAX_RETRIES:
+                try:
+                    # First attempt to translate
+                    response = self.client.translate(
+                        text,
+                        target_language=self.to_language,
+                        source_language=self.from_language
+                    )
+                    translated_text_result = response['translatedText']
 
-                for i in range(MAX_RETRIES):
-                    if text_translated != text:
-                        break
+                    # Detect language for verification
+                    detect_response = self.client.detect_language(text)
+                    detected_language_result = detect_response['language']
 
-                    print("{} not translated. Detected as {}. Trying again".format(text, detected_language.lang))
-                    text_translated = self.translator.translate(text, self.to_language, self.from_language).text
-                    retries += 1
+                    # If successfully translated and detected language matches source, break
+                    # or if the translated text is actually different from the original
+                    if translated_text_result != text or detected_language_result != self.from_language:
+                        break # Successfully translated or detected source is different
 
-            if retries < MAX_RETRIES:
-                self.dictionary[text] = text_translated
+                    print(f"'{text}' not sufficiently translated. Detected as {detected_language_result}. Retrying...")
+
+                except exceptions.GoogleAPICallError as e:
+                    print(f"API call failed for '{text}': {e}. Retrying...")
+                except Exception as e:
+                    print(f"An unexpected error occurred for '{text}': {e}. Retrying...")
+
+                retries += 1
+
+            if translated_text_result is not None and translated_text_result != text:
+                self.dictionary[text] = translated_text_result
+                return translated_text_result
+            else:
+                # If all retries fail or translation result is same as original
+                print(f"Failed to translate '{text}' after {MAX_RETRIES} attempts or translation was identical.")
+                return text # Return original text if translation failed or was identical
+
         else:
-            print("known string")
-
-        # if text_translated[0].islower():
-        #     text_translated = text_translated[0].upper() + text_translated[1:]
-        #     self.dictionary[translator] = text_translated
-
-        return text_translated
+            print("Known string or regex matched (not translating).")
+            # If it was found in dictionary and is different, or regex matched, return it.
+            if text_translated and text_translated != text:
+                return text_translated
+            else:
+                return text # If it's a known string but identical, return original

@@ -2,7 +2,7 @@ import argparse
 
 from translator.translator_azure import TranslatorAzure
 from translator.translator_google import TranslatorGoogle
-from translator.translator_papago import TranslatorPapago
+# from translator.translator_papago import TranslatorPapago
 
 from file_handler.excel_handler import ExcelHandler
 from file_handler.ppt_handler import PptHandler
