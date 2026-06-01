@@ -6,6 +6,7 @@ from translator.translator_google import TranslatorGoogle
 
 from file_handler.excel_handler import ExcelHandler
 from file_handler.ppt_handler import PptHandler
+from file_handler.word_handler import WordHandler
 
 if __name__ == "__main__":
     # Create the parser
@@ -67,6 +68,9 @@ if __name__ == "__main__":
         if file_path[-4:] == "pptx":
             print("Translating a Powerpoint file")
             file_translator = PptHandler(text_translator)
+        elif file_path[-4:] == "docx":
+            print("Translating a Word file")
+            file_translator = WordHandler(text_translator)
         elif file_path[-4:] == "xlsx":
             print("Translating an Excel file")
         else:
